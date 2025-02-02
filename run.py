@@ -17,7 +17,7 @@ import os
 import torch
 
 from video_depth_anything.video_depth import VideoDepthAnything
-from utils.dc_utils import read_video_frames, vis_sequence_depth, save_video
+from utils.dc_utils import read_video_frames, save_video
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Video Depth Anything')
@@ -43,9 +43,8 @@ if __name__ == '__main__':
     video_depth_anything = video_depth_anything.to(DEVICE).eval()
 
     frames, target_fps = read_video_frames(args.input_video, args.max_len, args.target_fps, args.max_res)
-    depth_list, fps = video_depth_anything.infer_video_depth(frames, target_fps, input_size=args.input_size, device=DEVICE)
-    depth_list = np.stack(depth_list, axis=0)
-    vis = vis_sequence_depth(depth_list)
+    depths, fps = video_depth_anything.infer_video_depth(frames, target_fps, input_size=args.input_size, device=DEVICE)
+    
     video_name = os.path.basename(args.input_video)
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
@@ -53,7 +52,7 @@ if __name__ == '__main__':
     processed_video_path = os.path.join(args.output_dir, os.path.splitext(video_name)[0]+'_src.mp4')
     depth_vis_path = os.path.join(args.output_dir, os.path.splitext(video_name)[0]+'_vis.mp4')
     save_video(frames, processed_video_path, fps=fps)
-    save_video(vis, depth_vis_path, fps=fps)
+    save_video(depths, depth_vis_path, fps=fps, is_depths=True)
 
     
 

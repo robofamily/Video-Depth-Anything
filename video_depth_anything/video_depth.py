@@ -150,5 +150,5 @@ class VideoDepthAnything(nn.Module):
             
         depth_list = depth_list_aligned
             
-        return depth_list[:org_video_len], target_fps
+        return np.stack(depth_list[:org_video_len], axis=0), target_fps
         

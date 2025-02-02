@@ -4,7 +4,8 @@ torchvision
 opencv-python
 matplotlib
 pillow
-mediapy
+imageio
+imageio-ffmpeg
 decord
 xformers
 einops

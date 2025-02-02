@@ -13,16 +13,15 @@
 # limitations under the License. 
 import gradio as gr
 
-
 import numpy as np
 import os
 import torch
 
 from video_depth_anything.video_depth import VideoDepthAnything
-from utils.dc_utils import read_video_frames, vis_sequence_depth, save_video
+from utils.dc_utils import read_video_frames, save_video
 
 examples = [
-    ['assets/example_videos/davis_rollercoaster.mp4'],
+    ['assets/example_videos/davis_rollercoaster.mp4', -1, -1, 1280],
 ]
 
 model_configs = {
@@ -46,9 +45,8 @@ def infer_video_depth(
     input_size: int = 518,
 ):
     frames, target_fps = read_video_frames(input_video, max_len, target_fps, max_res)
-    depth_list, fps = video_depth_anything.infer_video_depth(frames, target_fps, input_size=input_size, device='cuda')
-    depth_list = np.stack(depth_list, axis=0)
-    vis = vis_sequence_depth(depth_list)
+    depths, fps = video_depth_anything.infer_video_depth(frames, target_fps, input_size=input_size, device='cuda')
+
     video_name = os.path.basename(input_video)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -56,7 +54,7 @@ def infer_video_depth(
     processed_video_path = os.path.join(output_dir, os.path.splitext(video_name)[0]+'_src.mp4')
     depth_vis_path = os.path.join(output_dir, os.path.splitext(video_name)[0]+'_vis.mp4')
     save_video(frames, processed_video_path, fps=fps)
-    save_video(vis, depth_vis_path, fps=fps)
+    save_video(depths, depth_vis_path, fps=fps, is_depths=True)
 
     return [processed_video_path, depth_vis_path]
 

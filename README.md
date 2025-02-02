@@ -35,7 +35,7 @@ We provide **two models** of varying scales for robust and consistent video dept
 
 ## Usage
 
-### Prepraration
+### Preparation
 
 ```bash
 git clone https://github.com/DepthAnything/Video-Depth-Anything

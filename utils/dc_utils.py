@@ -3,13 +3,9 @@
 #
 # This file may have been modified by ByteDance Ltd. and/or its affiliates on [date of modification]
 # Original file is released under [ MIT License license], with the full license text available at [https://github.com/Tencent/DepthCrafter?tab=License-1-ov-file].
-from typing import Union, List
-import tempfile
 import numpy as np
-import PIL.Image
 import matplotlib.cm as cm
-import mediapy
-import torch
+import imageio
 try:
     from decord import VideoReader, cpu
     DECORD_AVAILABLE = True
@@ -17,8 +13,10 @@ except:
     import cv2
     DECORD_AVAILABLE = False
 
+def ensure_even(value):
+    return value if value % 2 == 0 else value + 1
 
-def read_video_frames(video_path, process_length, target_fps=-1, max_res=-1, dataset="open"):
+def read_video_frames(video_path, process_length, target_fps=-1, max_res=-1):
     if DECORD_AVAILABLE:
         vid = VideoReader(video_path, ctx=cpu(0))
         original_height, original_width = vid.get_batch([0]).shape[1:3]
@@ -26,8 +24,8 @@ def read_video_frames(video_path, process_length, target_fps=-1, max_res=-1, dat
         width = original_width
         if max_res > 0 and max(height, width) > max_res:
             scale = max_res / max(original_height, original_width)
-            height = round(original_height * scale)
-            width = round(original_width * scale)
+            height = ensure_even(round(original_height * scale))
+            width = ensure_even(round(original_width * scale))
 
         vid = VideoReader(video_path, ctx=cpu(0), width=width, height=height)
 
@@ -71,46 +69,18 @@ def read_video_frames(video_path, process_length, target_fps=-1, max_res=-1, dat
     return frames, fps
 
 
-def save_video(
-    video_frames: Union[List[np.ndarray], List[PIL.Image.Image]],
-    output_video_path: str = None,
-    fps: int = 10,
-    crf: int = 18,
-) -> str:
-    if output_video_path is None:
-        output_video_path = tempfile.NamedTemporaryFile(suffix=".mp4").name
+def save_video(frames, output_video_path, fps=10, is_depths=False):
+    writer = imageio.get_writer(output_video_path, fps=fps, macro_block_size=1, codec='libx264', ffmpeg_params=['-crf', '18'])
+    if is_depths:
+        colormap = np.array(cm.get_cmap("inferno").colors)
+        d_min, d_max = frames.min(), frames.max()
+        for i in range(frames.shape[0]):
+            depth = frames[i]
+            depth_norm = ((depth - d_min) / (d_max - d_min) * 255).astype(np.uint8)
+            depth_vis = (colormap[depth_norm] * 255).astype(np.uint8)
+            writer.append_data(depth_vis)
+    else:
+        for i in range(frames.shape[0]):
+            writer.append_data(frames[i])
 
-    if isinstance(video_frames[0], np.ndarray):
-        video_frames = [frame.astype(np.uint8) for frame in video_frames]
-
-    elif isinstance(video_frames[0], PIL.Image.Image):
-        video_frames = [np.array(frame) for frame in video_frames]
-    mediapy.write_video(output_video_path, video_frames, fps=fps, crf=crf)
-    return output_video_path
-
-
-class ColorMapper:
-    # a color mapper to map depth values to a certain colormap
-    def __init__(self, colormap: str = "inferno"):
-        self.colormap = torch.tensor(cm.get_cmap(colormap).colors)
-
-    def apply(self, image: torch.Tensor, v_min=None, v_max=None):
-        # assert len(image.shape) == 2
-        if v_min is None:
-            v_min = image.min()
-        if v_max is None:
-            v_max = image.max()
-        image = (image - v_min) / (v_max - v_min)
-        image = (image * 255).long()
-        image = self.colormap[image] * 255
-        return image
-
-
-def vis_sequence_depth(depths: np.ndarray, v_min=None, v_max=None):
-    visualizer = ColorMapper()
-    if v_min is None:
-        v_min = depths.min()
-    if v_max is None:
-        v_max = depths.max()
-    res = visualizer.apply(torch.tensor(depths), v_min=v_min, v_max=v_max).numpy()
-    return res
+    writer.close()
