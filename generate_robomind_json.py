@@ -1,6 +1,8 @@
 import os
 import json
 import argparse
+import h5py
+from tqdm import tqdm
 
 def generate_trajectory_paths(dataset_dir, output_json, embodiments):
     trajectory_data = []
@@ -11,7 +13,7 @@ def generate_trajectory_paths(dataset_dir, output_json, embodiments):
             print(f"Embodiment directory {embodiment_dir} does not exist. Skipping.")
             continue
 
-        for env_name in os.listdir(embodiment_dir):
+        for env_name in tqdm(os.listdir(embodiment_dir), desc=f"Processing {embodiment}"):
             dataset_root = os.path.join(embodiment_dir, env_name, 'success_episodes/train')
             if not os.path.exists(dataset_root):
                 print(f"Dataset root {dataset_root} does not exist. Skipping.")
@@ -27,15 +29,15 @@ def generate_trajectory_paths(dataset_dir, output_json, embodiments):
                     if file.endswith('.hdf5'):
                         file_path = os.path.join(data_dir, file)
 
-                        # Determine the camera names based on the embodiment
-                        if embodiment == "h5_ur_1rgb":
-                            camera_names = ["camera_top"]
-                        elif embodiment == "h5_franka_3rgb":
-                            camera_names = ["camera_top", "camera_left", "camera_right"]
-                        elif embodiment == "h5_franka_1rgb":
-                            camera_names = ["camera_top"]
-                        else:
-                            raise ValueError(f"Unknown embodiment: {embodiment}")
+                        try:
+                            with h5py.File(file_path, 'r') as h5_file:
+                                camera_names = [name for name in h5_file['observations']['rgb_images']]
+                        except RuntimeError as e:
+                            print(f"Failed to read {file_path}: {e}")
+                            continue
+                        except Exception as e:
+                            print(f"An error occurred while reading {file_path}: {e}")
+                            continue
 
                         # Create a separate entry for each camera
                         for camera_name in camera_names:
@@ -60,6 +62,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Define the embodiments to process
-    embodiments = ["h5_ur_1rgb", "h5_franka_3rgb", "h5_franka_1rgb"]
+    embodiments = ["h5_franka_3rgb", "h5_franka_1rgb"]
 
     generate_trajectory_paths(args.dataset_path, args.output_json, embodiments)
