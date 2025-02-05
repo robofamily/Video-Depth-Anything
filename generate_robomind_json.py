@@ -31,7 +31,10 @@ def generate_trajectory_paths(dataset_dir, output_json, embodiments):
 
                         try:
                             with h5py.File(file_path, 'r') as h5_file:
-                                camera_names = [name for name in h5_file['observations']['rgb_images']]
+                                camera_names = []
+                                for cam in h5_file['observations']['rgb_images']:
+                                    if h5_file['observations']['rgb_images'][cam][0].shape[0] > 0:
+                                        camera_names.append(cam)
                         except RuntimeError as e:
                             print(f"Failed to read {file_path}: {e}")
                             continue
@@ -47,7 +50,6 @@ def generate_trajectory_paths(dataset_dir, output_json, embodiments):
                                 "camera_name": camera_name,  # Only one camera per entry
                                 "trajectory_path": file_path
                             })
-                        break  # Assuming only one HDF5 file per trajectory
 
     # Save the data to a JSON file
     with open(output_json, 'w') as f:
@@ -62,6 +64,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Define the embodiments to process
-    embodiments = ["h5_franka_3rgb", "h5_franka_1rgb"]
+    embodiments = ["h5_franka_1rgb", "h5_franka_3rgb"]
 
     generate_trajectory_paths(args.dataset_path, args.output_json, embodiments)
